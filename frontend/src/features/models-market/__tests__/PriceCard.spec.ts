@@ -12,9 +12,9 @@ const baseModel: PublicModelEntry = {
   pricing: {
     pricing_mode: 'token',
     price_status: 'priced',
-    input_price_per_token: 0.0000022750000000000002, // ×1e6 ≈ 2.275 → 2.28（toFixed(2)）
-    output_price_per_token: 0.000018200000000000002, // ×1e6 ≈ 18.2 → 18.20
-    cache_read_price_per_token: 2.275e-7,            // ×1e6 ≈ 0.2275 → 0.23
+    input_price_per_token: 0.00000175,
+    output_price_per_token: 0.000014,
+    cache_read_price_per_token: 1.75e-7,
   },
 }
 
@@ -31,9 +31,9 @@ describe('PriceCard', () => {
       global: { plugins: [i18n] },
     })
     const text = w.text()
-    expect(text).toContain('2.96')   // input: 0.000002275 × 1.3 × 1e6 = 2.9575
-    expect(text).toContain('23.66')  // output: 0.0000182 × 1.3 × 1e6 = 23.66
-    expect(text).toContain('0.30')   // cache read: 2.275e-7 × 1.3 × 1e6 = 0.29575
+    expect(text).toContain('2.28')   // input: 0.00000175 × 1.3 × 1e6 = 2.275
+    expect(text).toContain('18.20')  // output: 0.000014 × 1.3 × 1e6 = 18.2
+    expect(text).toContain('0.23')   // cache read: 1.75e-7 × 1.3 × 1e6 = 0.2275
     expect(text).toContain('积分 / 1M Token')
   })
 
@@ -55,7 +55,7 @@ describe('PriceCard', () => {
     expect(w.text()).not.toContain('输出')
   })
 
-  it('pricing_mode=request 隐藏 token 行，按次价格不乘倍率', () => {
+  it('pricing_mode=request 隐藏 token 行，按次价格按分组倍率展示', () => {
     const m: PublicModelEntry = {
       id: 'm',
       display_name: 'M',
@@ -73,7 +73,7 @@ describe('PriceCard', () => {
     })
     expect(w.text()).not.toContain('输入')
     expect(w.text()).toContain('按次')
-    expect(w.text()).toContain('0.05')
+    expect(w.text()).toContain('0.50')
     expect(w.text()).toContain('积分 / 次')
   })
 
@@ -120,14 +120,14 @@ describe('PriceCard', () => {
         ],
       },
     }
-    const w = mount(PriceCard, { props: { model: m }, global: { plugins: [i18n] } })
+    const w = mount(PriceCard, { props: { model: m, rateMultiplier: 1.3 }, global: { plugins: [i18n] } })
     const text = w.text()
     expect(text).toContain('1K')
-    expect(text).toContain('1.00')
+    expect(text).toContain('1.30')
     expect(text).toContain('2K')
-    expect(text).toContain('1.50')
+    expect(text).toContain('1.95')
     expect(text).toContain('4K')
-    expect(text).toContain('2.00')
+    expect(text).toContain('2.60')
     expect(text).toContain('积分 / 次')
     expect(text).not.toContain('积分 / 1M Token')
     expect(text).not.toContain('输入')

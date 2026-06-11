@@ -67,8 +67,8 @@ func TestAggregatePublicModels_BasicShape(t *testing.T) {
 	require.Equal(t, "GPT-5.2", m.DisplayName, "display_name 是渠道里设的原名")
 }
 
-func TestAggregatePublicModels_RateMultiplierApplied(t *testing.T) {
-	// 价格 = base × rate_multiplier；单位仍是 积分/token（前端 ×1e6）。
+func TestAggregatePublicModels_ReturnsChannelPricingWithoutRateMultiplier(t *testing.T) {
+	// 公开模型广场 pricing 返回渠道原始价，分组倍率仅通过 rate_multiplier 字段暴露给前端展示层。
 	channels := []service.AvailableChannel{
 		makeChannel("OpenAI", service.StatusActive,
 			[]service.AvailableGroupRef{
@@ -86,14 +86,15 @@ func TestAggregatePublicModels_RateMultiplierApplied(t *testing.T) {
 	}
 	out := aggregatePublicModels(channels, stubResolver)
 	require.Len(t, out, 1)
+	require.InDelta(t, 1.3, out[0].RateMultiplier, 1e-9)
+
 	p := out[0].Models[0].Pricing
-	// 0.00000175 × 1.3 = 0.000002275
 	require.NotNil(t, p.InputPricePerToken)
-	require.InDelta(t, 0.000002275, *p.InputPricePerToken, 1e-12)
+	require.InDelta(t, 0.00000175, *p.InputPricePerToken, 1e-12)
 	require.NotNil(t, p.OutputPricePerToken)
-	require.InDelta(t, 0.0000182, *p.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 0.000014, *p.OutputPricePerToken, 1e-12)
 	require.NotNil(t, p.CacheReadPricePerToken)
-	require.InDelta(t, 2.275e-7, *p.CacheReadPricePerToken, 1e-15)
+	require.InDelta(t, 1.75e-7, *p.CacheReadPricePerToken, 1e-15)
 }
 
 func TestAggregatePublicModels_ImageBillingIncludesPublicPriceTiers(t *testing.T) {
@@ -135,7 +136,7 @@ func TestAggregatePublicModels_ImageBillingIncludesPublicPriceTiers(t *testing.T
 
 	first := tiers[0].(map[string]any)
 	require.Equal(t, "2K", first["tier_label"], "按 sort_order 稳定排序")
-	require.InDelta(t, 1.95, first["per_request_price"].(float64), 1e-9)
+	require.InDelta(t, 1.5, first["per_request_price"].(float64), 1e-9)
 	require.NotContains(t, first, "id")
 	require.NotContains(t, first, "pricing_id")
 	require.NotContains(t, first, "sort_order")

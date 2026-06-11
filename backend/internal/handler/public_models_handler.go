@@ -20,10 +20,10 @@ import (
 //
 //	v1.Group("/public").GET("/models", h.AvailableChannel.ListPublicModels)
 //
-// 响应规则（按"分组"组织，价格 = base × rate_multiplier）：
+// 响应规则（按"分组"组织，pricing 返回渠道原始价，rate_multiplier 单独暴露给前端展示层）：
 //  1. 顶层 data 直接是 array，每条是一个公开分组（IsExclusive=false）
 //  2. 每个分组的 models = 所有 active 渠道里 group_ids 包含本分组 ID 且 platform 匹配的模型集合（按 model_id 去重）
-//  3. 价格 = 渠道原价 × 分组倍率，单位仍是 积分/token；前端按需转换显示单位
+//  3. pricing 价格 = 渠道原始价，单位仍是 积分/token 或 积分/次；前端展示时再乘 rate_multiplier
 //  4. 价格字段 nil 或 0 时省略字段（json:omitempty）
 //  5. price_status: 任一价格字段非 nil 非 0 → "priced"；全部 nil/0 → "unpriced"
 //  6. pricing_mode: 取自渠道 BillingMode（"token" / "image" / "request"），fallback 为 "token"
@@ -308,7 +308,7 @@ func aggregatePublicModels(channels []service.AvailableChannel, resolveID idReso
 				gp.Models = append(gp.Models, publicModelDTO{
 					ID:          modelID,
 					DisplayName: m.Name,
-					Pricing:     buildPricing(m.Pricing, rate),
+					Pricing:     buildPricing(m.Pricing),
 				})
 			}
 		}
@@ -332,13 +332,13 @@ func aggregatePublicModels(channels []service.AvailableChannel, resolveID idReso
 	return out
 }
 
-// buildPricing 把 service.ChannelModelPricing × rate 转为 publicPricingDTO。
+// buildPricing 把 service.ChannelModelPricing 转为 publicPricingDTO。
 //
 // 规则：
 //   - PricingMode = BillingMode（空时 fallback "token"）
 //   - 价格字段 nil 或 0 视为未配置，保持 nil（JSON omitempty 省略）
 //   - 任一价格字段有值 → PriceStatus="priced"；全部无值 → "unpriced"
-func buildPricing(p *service.ChannelModelPricing, rate float64) publicPricingDTO {
+func buildPricing(p *service.ChannelModelPricing) publicPricingDTO {
 	mode := string(p.BillingMode)
 	if mode == "" {
 		mode = string(service.BillingModeToken)
@@ -346,13 +346,13 @@ func buildPricing(p *service.ChannelModelPricing, rate float64) publicPricingDTO
 
 	out := publicPricingDTO{
 		PricingMode:              mode,
-		InputPricePerToken:       multiplyOrSkip(p.InputPrice, rate),
-		OutputPricePerToken:      multiplyOrSkip(p.OutputPrice, rate),
-		CacheWritePricePerToken:  multiplyOrSkip(p.CacheWritePrice, rate),
-		CacheReadPricePerToken:   multiplyOrSkip(p.CacheReadPrice, rate),
-		ImageOutputPricePerToken: multiplyOrSkip(p.ImageOutputPrice, rate),
-		PerRequestPrice:          multiplyOrSkip(p.PerRequestPrice, rate),
-		PriceTiers:               buildPublicPriceTiers(p.Intervals, rate),
+		InputPricePerToken:       copyOrSkip(p.InputPrice),
+		OutputPricePerToken:      copyOrSkip(p.OutputPrice),
+		CacheWritePricePerToken:  copyOrSkip(p.CacheWritePrice),
+		CacheReadPricePerToken:   copyOrSkip(p.CacheReadPrice),
+		ImageOutputPricePerToken: copyOrSkip(p.ImageOutputPrice),
+		PerRequestPrice:          copyOrSkip(p.PerRequestPrice),
+		PriceTiers:               buildPublicPriceTiers(p.Intervals),
 	}
 
 	hasAny := out.InputPricePerToken != nil ||
@@ -370,20 +370,20 @@ func buildPricing(p *service.ChannelModelPricing, rate float64) publicPricingDTO
 	return out
 }
 
-// multiplyOrSkip 返回 base × rate；base 为 nil 或 0 时返回 nil（视为未配置）。
+// copyOrSkip 返回 base 的拷贝；base 为 nil 或 0 时返回 nil（视为未配置）。
 //
 // 上游约定 "0 = 未配置"（参见 service.nonZeroPtr）；本函数把这一约定保留下来：
-// 渠道里设 cache_write_price=0 表示未配置，乘倍率后仍是 nil（JSON omitempty 省略）。
-func multiplyOrSkip(base *float64, rate float64) *float64 {
+// 渠道里设 cache_write_price=0 表示未配置，JSON omitempty 会省略该字段。
+func copyOrSkip(base *float64) *float64 {
 	if base == nil || *base == 0 {
 		return nil
 	}
-	v := *base * rate
+	v := *base
 	return &v
 }
 
 // buildPublicPriceTiers 把内部 intervals 转为公开安全的按次价格档位。
-func buildPublicPriceTiers(intervals []service.PricingInterval, rate float64) []publicPriceTierDTO {
+func buildPublicPriceTiers(intervals []service.PricingInterval) []publicPriceTierDTO {
 	if len(intervals) == 0 {
 		return nil
 	}
@@ -393,7 +393,7 @@ func buildPublicPriceTiers(intervals []service.PricingInterval, rate float64) []
 
 	tiers := make([]publicPriceTierDTO, 0, len(sorted))
 	for _, interval := range sorted {
-		price := multiplyOrSkip(interval.PerRequestPrice, rate)
+		price := copyOrSkip(interval.PerRequestPrice)
 		if price == nil {
 			continue
 		}

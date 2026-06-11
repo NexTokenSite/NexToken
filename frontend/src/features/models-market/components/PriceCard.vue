@@ -85,10 +85,10 @@ function formatTokenPrice(perToken: number | undefined | null): string | null {
   return (perToken * props.rateMultiplier * PER_MILLION).toFixed(2)
 }
 
-// formatRequestPrice 展示后端已计算倍率的按次价格，只负责统一小数位。
+// formatRequestPrice 把按次基础价按分组倍率折算后保留两位小数。
 function formatRequestPrice(price: number | undefined | null): string | null {
   if (price == null) return null
-  return price.toFixed(2)
+  return (price * props.rateMultiplier).toFixed(2)
 }
 
 // Row 比原来多带一个 dotColor，用小色点替代纯文字标签让 i/o/cache 一眼可辨
