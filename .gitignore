@@ -124,6 +124,8 @@ CLAUDE.md
 # 仅 ignore scripts 目录下的临时文件,保留版本管理需要的脚本
 scripts/*.tmp
 scripts/.cache/
+!backend/scripts/
+!backend/scripts/resolve-version.sh
 .code-review-state
 #openspec/
 code-reviews/
