@@ -1,22 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => ({
-      'payment.subscribeNow': '立即开通',
-      'payment.renewNow': '续费',
-      'payment.days': '天',
-      'payment.planCard.rate': '倍率',
-      'payment.planCard.quota': '额度',
-      'payment.planCard.unlimited': '不限',
-      'payment.planCard.models': '模型',
-    }[key] ?? key),
-  }),
-}))
+vi.mock('vue-i18n', async importOriginal => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string) => ({
+        'payment.subscribeNow': '立即开通',
+        'payment.renewNow': '续费',
+        'payment.days': '天',
+        'payment.planCard.rate': '倍率',
+        'payment.planCard.quota': '额度',
+        'payment.planCard.unlimited': '不限',
+        'payment.planCard.models': '模型',
+      }[key] ?? key),
+    }),
+  }
+})
 
 const basePlan: SubscriptionPlan = {
   id: 7,
@@ -48,6 +54,7 @@ function mountPlanCard(overrides: Partial<SubscriptionPlan> = {}, activeSubscrip
       plan,
       activeSubscriptions,
     },
+    global: { plugins: [createPinia()] },
   })
 }
 
