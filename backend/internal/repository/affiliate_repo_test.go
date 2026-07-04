@@ -26,3 +26,18 @@ func TestAffiliateRecordQueriesUseLedgerAuditFields(t *testing.T) {
 	require.NotContains(t, content, "parseAffiliateRebateAmount")
 	require.NotContains(t, content, `"current_balance": "u.balance"`)
 }
+
+func TestListInviteesSQLIncludesUsageWindows(t *testing.T) {
+	source, err := os.ReadFile("affiliate_repo.go")
+	require.NoError(t, err)
+	content := string(source)
+
+	require.Contains(t, content, "LEFT JOIN LATERAL")
+	require.Contains(t, content, "today_tokens")
+	require.Contains(t, content, "week_tokens")
+	require.Contains(t, content, "month_tokens")
+	require.Contains(t, content, "today_actual_cost")
+	require.Contains(t, content, "week_actual_cost")
+	require.Contains(t, content, "month_actual_cost")
+	require.Contains(t, content, "LEAST($2::timestamptz, $3::timestamptz, $4::timestamptz)")
+}

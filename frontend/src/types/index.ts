@@ -132,6 +132,18 @@ export interface AffiliateInvitee {
   username: string
   created_at?: string
   total_rebate: number
+  usage?: AffiliateInviteeUsage
+}
+
+export interface AffiliateInviteeUsage {
+  today: AffiliateInviteeUsageStat
+  week: AffiliateInviteeUsageStat
+  month: AffiliateInviteeUsageStat
+}
+
+export interface AffiliateInviteeUsageStat {
+  tokens: number
+  actual_cost: number
 }
 
 export interface UserAffiliateDetail {

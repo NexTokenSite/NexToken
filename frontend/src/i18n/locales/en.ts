@@ -1181,6 +1181,9 @@ export default {
       columns: {
         email: 'Email',
         username: 'Username',
+        todayUsage: 'Today',
+        weekUsage: 'This Week',
+        monthUsage: 'This Month',
         rebate: 'Rebate',
         joinedAt: 'Joined At'
       }

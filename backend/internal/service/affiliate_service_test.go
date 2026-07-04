@@ -84,7 +84,8 @@ func TestValidateExclusiveRate_BoundaryAndInvalid(t *testing.T) {
 
 func TestMaskEmail(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, "a***@g***.com", maskEmail("alice@gmail.com"))
+	require.Equal(t, "alic***@g***.com", maskEmail("alice@gmail.com"))
+	require.Equal(t, "bob***@e***.com", maskEmail("bob@example.com"))
 	require.Equal(t, "x***@d***", maskEmail("x@domain"))
 	require.Equal(t, "", maskEmail(""))
 }

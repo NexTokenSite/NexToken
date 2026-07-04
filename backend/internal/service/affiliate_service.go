@@ -72,11 +72,23 @@ type AffiliateSummary struct {
 }
 
 type AffiliateInvitee struct {
-	UserID      int64      `json:"user_id"`
-	Email       string     `json:"email"`
-	Username    string     `json:"username"`
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
-	TotalRebate float64    `json:"total_rebate"`
+	UserID      int64                 `json:"user_id"`
+	Email       string                `json:"email"`
+	Username    string                `json:"username"`
+	CreatedAt   *time.Time            `json:"created_at,omitempty"`
+	TotalRebate float64               `json:"total_rebate"`
+	Usage       AffiliateInviteeUsage `json:"usage"`
+}
+
+type AffiliateInviteeUsage struct {
+	Today AffiliateInviteeUsageStat `json:"today"`
+	Week  AffiliateInviteeUsageStat `json:"week"`
+	Month AffiliateInviteeUsageStat `json:"month"`
+}
+
+type AffiliateInviteeUsageStat struct {
+	Tokens     int64   `json:"tokens"`
+	ActualCost float64 `json:"actual_cost"`
 }
 
 type AffiliateDetail struct {
@@ -456,25 +468,28 @@ func maskEmail(email string) string {
 	domain := email[at+1:]
 	dot := strings.LastIndex(domain, ".")
 
-	maskedLocal := maskSegment(local)
+	maskedLocal := maskSegment(local, 4)
 	if dot <= 0 || dot >= len(domain)-1 {
-		return maskedLocal + "@" + maskSegment(domain)
+		return maskedLocal + "@" + maskSegment(domain, 1)
 	}
 
 	domainName := domain[:dot]
 	tld := domain[dot:]
-	return maskedLocal + "@" + maskSegment(domainName) + tld
+	return maskedLocal + "@" + maskSegment(domainName, 1) + tld
 }
 
-func maskSegment(s string) string {
+func maskSegment(s string, visible int) string {
 	r := []rune(s)
 	if len(r) == 0 {
 		return "***"
 	}
-	if len(r) == 1 {
-		return string(r[0]) + "***"
+	if visible < 1 {
+		visible = 1
 	}
-	return string(r[0]) + "***"
+	if visible > len(r) {
+		visible = len(r)
+	}
+	return string(r[:visible]) + "***"
 }
 
 func (s *AffiliateService) invalidateAffiliateCaches(ctx context.Context, userID int64) {

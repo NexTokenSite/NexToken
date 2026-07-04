@@ -1185,6 +1185,9 @@ export default {
       columns: {
         email: '邮箱',
         username: '用户名',
+        todayUsage: '今日用量',
+        weekUsage: '本周用量',
+        monthUsage: '本月用量',
         rebate: '返利明细',
         joinedAt: '注册时间'
       }

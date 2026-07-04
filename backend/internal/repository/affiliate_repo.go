@@ -11,6 +11,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 )
@@ -345,23 +346,48 @@ func (r *affiliateRepository) ListInvitees(ctx context.Context, inviterID int64,
 	if limit <= 0 {
 		limit = 100
 	}
+	now := timezone.Now()
+	todayStart := timezone.StartOfDay(now)
+	weekStart := timezone.StartOfWeek(now)
+	monthStart := timezone.StartOfMonth(now)
 	client := clientFromContext(ctx, r.client)
 	rows, err := client.QueryContext(ctx, `
 SELECT ua.user_id,
        COALESCE(u.email, ''),
        COALESCE(u.username, ''),
        ua.created_at,
-       COALESCE(SUM(ual.amount), 0)::double precision AS total_rebate
+       COALESCE(SUM(ual.amount), 0)::double precision AS total_rebate,
+       COALESCE(usage.today_tokens, 0)::bigint AS today_tokens,
+       COALESCE(usage.today_actual_cost, 0)::double precision AS today_actual_cost,
+       COALESCE(usage.week_tokens, 0)::bigint AS week_tokens,
+       COALESCE(usage.week_actual_cost, 0)::double precision AS week_actual_cost,
+       COALESCE(usage.month_tokens, 0)::bigint AS month_tokens,
+       COALESCE(usage.month_actual_cost, 0)::double precision AS month_actual_cost
 FROM user_affiliates ua
 LEFT JOIN users u ON u.id = ua.user_id
 LEFT JOIN user_affiliate_ledger ual
        ON ual.user_id = $1
       AND ual.source_user_id = ua.user_id
       AND ual.action = 'accrue'
+LEFT JOIN LATERAL (
+    SELECT
+        COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) FILTER (WHERE ul.created_at >= $2), 0)::bigint AS today_tokens,
+        COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $2), 0)::double precision AS today_actual_cost,
+        COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) FILTER (WHERE ul.created_at >= $3), 0)::bigint AS week_tokens,
+        COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $3), 0)::double precision AS week_actual_cost,
+        COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) FILTER (WHERE ul.created_at >= $4), 0)::bigint AS month_tokens,
+        COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $4), 0)::double precision AS month_actual_cost
+    FROM usage_logs ul
+    WHERE ul.user_id = ua.user_id
+      AND ul.created_at >= LEAST($2::timestamptz, $3::timestamptz, $4::timestamptz)
+) usage ON TRUE
 WHERE ua.inviter_id = $1
-GROUP BY ua.user_id, u.email, u.username, ua.created_at
+GROUP BY ua.user_id, u.email, u.username, ua.created_at,
+         usage.today_tokens, usage.today_actual_cost,
+         usage.week_tokens, usage.week_actual_cost,
+         usage.month_tokens, usage.month_actual_cost
 ORDER BY ua.created_at DESC
-LIMIT $2`, inviterID, limit)
+LIMIT $5`, inviterID, todayStart, weekStart, monthStart, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +397,19 @@ LIMIT $2`, inviterID, limit)
 	for rows.Next() {
 		var item service.AffiliateInvitee
 		var createdAt time.Time
-		if err := rows.Scan(&item.UserID, &item.Email, &item.Username, &createdAt, &item.TotalRebate); err != nil {
+		if err := rows.Scan(
+			&item.UserID,
+			&item.Email,
+			&item.Username,
+			&createdAt,
+			&item.TotalRebate,
+			&item.Usage.Today.Tokens,
+			&item.Usage.Today.ActualCost,
+			&item.Usage.Week.Tokens,
+			&item.Usage.Week.ActualCost,
+			&item.Usage.Month.Tokens,
+			&item.Usage.Month.ActualCost,
+		); err != nil {
 			return nil, err
 		}
 		item.CreatedAt = &createdAt
