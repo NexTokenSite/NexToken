@@ -118,3 +118,14 @@ describe('SubscriptionPlanCard model scopes', () => {
     expect(text).toContain('Imagen')
   })
 })
+
+describe('SubscriptionPlanCard currency', () => {
+  it('uses the configured currency symbol while preserving USD for legacy plans', () => {
+    const cnyPlan = mountPlanCard({ price: 10, currency: 'CNY', original_price: 20 }).text()
+
+    expect(cnyPlan).toContain('¥10CNY')
+    expect(cnyPlan).toContain('¥20CNY')
+    expect(mountPlanCard({ price: 10, currency: 'USD' }).text()).toContain('$10USD')
+    expect(mountPlanCard({ price: 10, currency: '' }).text()).toContain('$10')
+  })
+})
