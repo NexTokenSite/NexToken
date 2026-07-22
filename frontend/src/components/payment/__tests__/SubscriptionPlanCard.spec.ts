@@ -91,7 +91,6 @@ describe('SubscriptionPlanCard action button', () => {
       },
     ])
     const button = wrapper.get('button')
-
     expect(button.text()).toBe('续费')
     expect(button.attributes('disabled')).toBeDefined()
 
