@@ -158,3 +158,5 @@ frontend/.playwright-cli/
 tasks/
 # 仓库根散落的临时 SVG
 /squares-2x2.svg
+# Vitest / Vite cache at repo root
+.vite/
